@@ -6,7 +6,6 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "notelistdelegate.h"
 #include "qxtglobalshortcut.h"
 #include "treeviewlogic.h"
 #include "listviewlogic.h"
@@ -37,42 +36,39 @@
 MainWindow::MainWindow(QWidget *parent)
     : MainWindowBase(parent),
       ui(new Ui::MainWindow),
-      m_settingsDatabase(Q_NULLPTR),
-      m_clearButton(Q_NULLPTR),
-      m_greenMaximizeButton(Q_NULLPTR),
-      m_redCloseButton(Q_NULLPTR),
-      m_yellowMinimizeButton(Q_NULLPTR),
-      m_trafficLightLayout(Q_NULLPTR),
-      m_newNoteButton(Q_NULLPTR),
-      m_trashButton(Q_NULLPTR),
-      m_dotsButton(Q_NULLPTR),
-      m_styleEditorButton(Q_NULLPTR),
-      m_textEdit(Q_NULLPTR),
-      m_searchEdit(Q_NULLPTR),
-      m_editorDateLabel(Q_NULLPTR),
-      m_splitter(Q_NULLPTR),
+      m_settingsDatabase(nullptr),
+      m_clearButton(nullptr),
+      m_greenMaximizeButton(nullptr),
+      m_redCloseButton(nullptr),
+      m_yellowMinimizeButton(nullptr),
+      m_trafficLightLayout(nullptr),
+      m_newNoteButton(nullptr),
+      m_trashButton(nullptr),
+      m_dotsButton(nullptr),
+      m_styleEditorButton(nullptr),
+      m_textEdit(nullptr),
+      m_searchEdit(nullptr),
+      m_editorDateLabel(nullptr),
+      m_splitter(nullptr),
       m_trayIcon(new QSystemTrayIcon(this)),
 #if !defined(Q_OS_MAC)
       m_restoreAction(new QAction(tr("&Hide Notes"), this)),
       m_quitAction(new QAction(tr("&Quit"), this)),
-      m_trayIconMenu(new QMenu(this)),
 #endif
-      m_listView(Q_NULLPTR),
-      m_listModel(Q_NULLPTR),
-      m_listViewLogic(Q_NULLPTR),
-      m_treeView(Q_NULLPTR),
+      m_listView(nullptr),
+      m_listModel(nullptr),
+      m_listViewLogic(nullptr),
+      m_treeView(nullptr),
       m_treeModel(new NodeTreeModel(this)),
-      m_treeViewLogic(Q_NULLPTR),
-      m_tagPool(Q_NULLPTR),
-      m_dbManager(Q_NULLPTR),
-      m_dbThread(Q_NULLPTR),
+      m_treeViewLogic(nullptr),
+      m_tagPool(nullptr),
+      m_dbManager(nullptr),
+      m_dbThread(nullptr),
       m_styleEditorWindow(this),
       m_aboutWindow(this),
       m_trashCounter(0),
       m_layoutMargin(10),
       m_shadowWidth(10),
-      m_noteListWidth(185),
-      m_nodeTreeWidth(185),
       m_smallEditorWidth(420),
       m_largeEditorWidth(1250),
       m_canMoveWindow(false),
@@ -94,8 +90,6 @@ MainWindow::MainWindow(QWidget *parent)
       m_chosenSerifFontIndex(0),
       m_chosenSansSerifFontIndex(0),
       m_chosenMonoFontIndex(0),
-      m_isNoteListCollapsed(false),
-      m_isTreeCollapsed(false),
       m_currentCharsLimitPerFont({ 64, // Mono    TODO: is this the proper way to initialize?
                                    80, // Serif
                                    80 }), // SansSerif
@@ -155,8 +149,12 @@ void MainWindow::InitData()
     if (isV0_9_0) {
         QProgressDialog *pd =
                 new QProgressDialog(tr("Migrating database, please wait."), QString(), 0, 0, this);
-        pd->setCancelButton(Q_NULLPTR);
+        pd->setCancelButton(nullptr);
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+        pd->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::FramelessWindowHint);
+#else
         pd->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint);
+#endif
         pd->setMinimumDuration(0);
         pd->show();
 
@@ -176,7 +174,8 @@ void MainWindow::InitData()
         watcher->setFuture(migration);
     }
     /// Check if it is running with an argument (ex. hide)
-    if (qApp->arguments().contains(QStringLiteral("--autostart"))) {
+    if (qApp->arguments().contains(QStringLiteral("--autostart"))
+        && QSystemTrayIcon::isSystemTrayAvailable()) {
         setMainWindowVisibility(false);
     }
 
@@ -248,7 +247,7 @@ void MainWindow::saveLastSelectedNote(const QSet<int> &notesId)
  */
 void MainWindow::paintEvent(QPaintEvent *event)
 {
-#if !defined(__APPLE__) && !defined(Q_OS_LINUX) && !defined(Q_OS_FREEBSD)
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     if (!m_useNativeWindowFrame) {
         QPainter painter(this);
         painter.save();
@@ -279,7 +278,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
  */
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
-    if (m_splitter != Q_NULLPTR) {
+    if (m_splitter) {
         // restore note list width
         updateFrame();
     }
@@ -307,7 +306,15 @@ MainWindow::~MainWindow()
 void MainWindow::setupMainWindow()
 {
 #if !defined(Q_OS_MAC)
-    this->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint);
+    auto flags = Qt::Window | Qt::CustomizeWindowHint;
+#  if defined(Q_OS_UNIX)
+    flags |= Qt::FramelessWindowHint;
+#  endif
+    setWindowFlags(flags);
+#endif
+
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    setAttribute(Qt::WA_TranslucentBackground);
 #endif
 
     m_greenMaximizeButton = new QPushButton(this);
@@ -321,7 +328,7 @@ void MainWindow::setupMainWindow()
     m_trafficLightLayout.addWidget(m_yellowMinimizeButton);
     m_trafficLightLayout.addWidget(m_greenMaximizeButton);
 #else
-    this->setCloseBtnQuit(false);
+    setCloseBtnQuit(false);
     m_layoutMargin = 0;
     m_greenMaximizeButton->setVisible(false);
     m_redCloseButton->setVisible(false);
@@ -329,6 +336,7 @@ void MainWindow::setupMainWindow()
 #endif
 
 #ifdef _WIN32
+    m_layoutMargin = 0;
     m_trafficLightLayout.setSpacing(0);
     m_trafficLightLayout.setContentsMargins(QMargins(0, 0, 0, 0));
     m_trafficLightLayout.setGeometry(QRect(2, 2, 90, 16));
@@ -342,25 +350,27 @@ void MainWindow::setupMainWindow()
     m_textEdit = ui->textEdit;
     m_editorDateLabel = ui->editorDateLabel;
     m_splitter = ui->splitter;
+    m_foldersWidget = ui->frameLeft;
+    m_noteListWidget = ui->frameMiddle;
+    // don't resize first two panes when resizing
+    m_splitter->setStretchFactor(0, 0);
+    m_splitter->setStretchFactor(1, 0);
+    m_splitter->setStretchFactor(2, 1);
 
-#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
-    //    QMargins margins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin);
-    //    setMargins(margins);
-    setMargins(QMargins(0, 0, 0, 0));
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    QMargins margins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin);
+    setMargins(margins);
 #elif _WIN32
     ui->verticalSpacer->changeSize(0, 7, QSizePolicy::Fixed, QSizePolicy::Fixed);
     ui->verticalSpacer_upEditorDateLabel->changeSize(0, 27, QSizePolicy::Fixed, QSizePolicy::Fixed);
 #endif
     ui->frame->installEventFilter(this);
-    ui->frameRight->setMouseTracking(true);
     ui->centralWidget->setMouseTracking(true);
-    ui->frame->setMouseTracking(true);
-    ui->frameRightTop->setMouseTracking(true);
-    this->setMouseTracking(true);
+    setMouseTracking(true);
     QPalette pal(palette());
     pal.setColor(QPalette::Window, QColor(248, 248, 248));
-    this->setAutoFillBackground(true);
-    this->setPalette(pal);
+    setAutoFillBackground(true);
+    setPalette(pal);
 
     m_newNoteButton->setToolTip(tr("Create New Note"));
     m_trashButton->setToolTip(tr("Delete Selected Note"));
@@ -437,17 +447,15 @@ void MainWindow::setupFonts()
 void MainWindow::setupTrayIcon()
 {
 #if !defined(Q_OS_MAC)
-    m_trayIconMenu->addAction(m_restoreAction);
-    m_trayIconMenu->addSeparator();
-    m_trayIconMenu->addAction(m_quitAction);
+    auto trayIconMenu = new QMenu(this);
+    trayIconMenu->addAction(m_restoreAction);
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(m_quitAction);
+    m_trayIcon->setContextMenu(trayIconMenu);
 #endif
 
     QIcon icon(QStringLiteral(":images/notes_system_tray_icon.png"));
     m_trayIcon->setIcon(icon);
-
-#if !defined(Q_OS_MAC)
-    m_trayIcon->setContextMenu(m_trayIconMenu);
-#endif
     m_trayIcon->show();
 }
 
@@ -474,11 +482,13 @@ void MainWindow::setupKeyboardShortcuts()
     new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_L), this, SLOT(maximizeWindow()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_M), this, SLOT(minimizeWindow()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q), this, SLOT(QuitApplication()));
+#if defined(Q_OS_MACOS) || defined(Q_OS_WINDOWS)
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_K), this, SLOT(toggleStayOnTop()));
+#endif
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_J), this, SLOT(toggleNoteList()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S), this,
                   SLOT(onStyleEditorButtonClicked()));
-    new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J), this, SLOT(toggleNodeTree()));
+    new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J), this, SLOT(toggleFolderTree()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_A), this, SLOT(selectAllNotesInList()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_QuoteLeft), this, SLOT(makeCode()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_B), this, SLOT(makeBold()));
@@ -520,9 +530,9 @@ void MainWindow::setupKeyboardShortcuts()
         if (isHidden() || windowState() == Qt::WindowMinimized
             || qApp->applicationState() == Qt::ApplicationInactive)
 #ifdef __APPLE__
-            this->raise();
+            raise();
 #else
-            this->activateWindow();
+            activateWindow();
 #endif
         m_textEdit->setDisabled(false);
         m_searchEdit->setDisabled(false);
@@ -748,7 +758,7 @@ void MainWindow::setupSignalsSlots()
                 ui->listviewLabel2->setText(l2);
                 m_splitter->setHandleWidth(0);
             });
-    connect(ui->toggleTreeViewButton, &QPushButton::pressed, this, &MainWindow::toggleNodeTree);
+    connect(ui->toggleTreeViewButton, &QPushButton::pressed, this, &MainWindow::toggleFolderTree);
     connect(m_dbManager, &DBManager::showErrorMessage, this, &MainWindow::showErrorMessage,
             Qt::QueuedConnection);
     connect(m_listViewLogic, &ListViewLogic::requestNewNote, this,
@@ -956,7 +966,7 @@ void MainWindow::setupTextEditStyleSheet(int paddingLeft, int paddingRight)
 {
     m_textEdit->setDocumentPadding(paddingLeft, 0, paddingRight, 2);
 
-#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     QString ss =
             QString("QTextEdit {background-color: %1;} "
                     "QTextEdit{selection-background-color: rgb(63, 99, 139);}"
@@ -1242,19 +1252,18 @@ void MainWindow::restoreStates()
     }
 
     if (m_settingsDatabase->value(QStringLiteral("windowGeometry"), "NULL") != "NULL")
-        this->restoreGeometry(
-                m_settingsDatabase->value(QStringLiteral("windowGeometry")).toByteArray());
+        restoreGeometry(m_settingsDatabase->value(QStringLiteral("windowGeometry")).toByteArray());
 
     if (m_settingsDatabase->value(QStringLiteral("editorSettingsWindowGeometry"), "NULL") != "NULL")
         m_styleEditorWindow.restoreGeometry(
                 m_settingsDatabase->value(QStringLiteral("editorSettingsWindowGeometry"))
                         .toByteArray());
 
-#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
-        /// Set margin to zero if the window is maximized
-        //    if (isMaximized()) {
-        //        setMargins(QMargins(0,0,0,0));
-        //    }
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    // Set margin to zero if the window is maximized
+    if (isMaximized()) {
+        setMargins(QMargins());
+    }
 #endif
 
 #if defined(UPDATE_CHECKER)
@@ -1271,14 +1280,13 @@ void MainWindow::restoreStates()
         m_splitter->restoreState(
                 m_settingsDatabase->value(QStringLiteral("splitterSizes")).toByteArray());
 
+    m_foldersWidget->setHidden(
+            m_settingsDatabase->value(QStringLiteral("isTreeCollapsed")).toBool());
+    m_noteListWidget->setHidden(
+            m_settingsDatabase->value(QStringLiteral("isNoteListCollapsed")).toBool());
+
     m_splitter->setCollapsible(0, false);
     m_splitter->setCollapsible(1, false);
-
-    m_nodeTreeWidth = m_splitter->sizes().at(0);
-    m_noteListWidth = m_splitter->sizes().at(1);
-
-    m_isTreeCollapsed = m_nodeTreeWidth == 0;
-    m_isNoteListCollapsed = m_noteListWidth == 0;
 
     QString selectedFontTypefaceFromDatabase =
             m_settingsDatabase->value(QStringLiteral("selectedFontTypeface"), "NULL").toString();
@@ -1507,7 +1515,7 @@ void MainWindow::onNewNoteButtonClicked()
     if (!m_searchEdit->text().isEmpty()) {
         m_listViewLogic->clearSearch(true);
     } else {
-        this->createNewNote();
+        createNewNote();
     }
 }
 
@@ -1582,7 +1590,7 @@ void MainWindow::onDotsButtonClicked()
 #endif
 
     // note list visiblity action
-    bool isNoteListCollapsed = (m_splitter->sizes().at(1) == 0);
+    bool isNoteListCollapsed = (m_noteListWidget->isHidden());
     QString actionLabel = isNoteListCollapsed ? tr("Show &notes list") : tr("Hide &notes list");
 
     QAction *noteListVisbilityAction = viewMenu->addAction(actionLabel);
@@ -1597,20 +1605,21 @@ void MainWindow::onDotsButtonClicked()
     }
 
     // folder tree view visiblity action
-    bool isFolderTreeCollapsed = (m_splitter->sizes().at(0) == 0);
+    bool isFolderTreeCollapsed = (m_foldersWidget->isHidden());
     QString factionLabel =
             isFolderTreeCollapsed ? tr("Show &folders tree") : tr("Hide &folders tree");
 
-    QAction *folderTreeVisbilityAction = viewMenu->addAction(factionLabel);
-    folderTreeVisbilityAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J));
+    QAction *folderTreeVisibilityAction = viewMenu->addAction(factionLabel);
+    folderTreeVisibilityAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J));
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-    folderTreeVisbilityAction->setShortcutVisibleInContextMenu(true);
+    folderTreeVisibilityAction->setShortcutVisibleInContextMenu(true);
 #endif
     if (isFolderTreeCollapsed) {
-        connect(folderTreeVisbilityAction, &QAction::triggered, this, &MainWindow::expandNodeTree);
+        connect(folderTreeVisibilityAction, &QAction::triggered, this,
+                &MainWindow::expandFolderTree);
     } else {
-        connect(folderTreeVisbilityAction, &QAction::triggered, this,
-                &MainWindow::collapseNodeTree);
+        connect(folderTreeVisibilityAction, &QAction::triggered, this,
+                &MainWindow::collapseFolderTree);
     }
 
     // Enable or Disable markdown
@@ -1623,11 +1632,7 @@ void MainWindow::onDotsButtonClicked()
 #endif
 
     connect(noteMarkdownVisibiltyAction, &QAction::triggered, m_noteEditorLogic, [this] {
-        if (m_noteEditorLogic->markdownEnabled()) {
-            m_noteEditorLogic->setMarkdownEnabled(false);
-        } else {
-            m_noteEditorLogic->setMarkdownEnabled(true);
-        }
+        m_noteEditorLogic->setMarkdownEnabled(!m_noteEditorLogic->markdownEnabled());
     });
 
 #if defined(UPDATE_CHECKER)
@@ -1699,7 +1704,7 @@ void MainWindow::onDotsButtonClicked()
     restoreNotesFileAction->setToolTip(tr("Replace all notes with notes from a file"));
     connect(restoreNotesFileAction, &QAction::triggered, this, &MainWindow::restoreNotesFile);
 
-#if !defined(Q_OS_LINUX) && !defined(Q_OS_FREEBSD)
+#if defined(Q_OS_MACOS) || defined(Q_OS_WINDOWS)
     // Stay on top action
     QAction *stayOnTopAction = viewMenu->addAction(tr("Always stay on top"));
     stayOnTopAction->setToolTip(tr("Always keep the notes application on top of all windows"));
@@ -1881,7 +1886,7 @@ void MainWindow::setTheme(Theme theme)
         m_currentEditorTextColor = QColor(26, 26, 26);
         m_currentEditorBackgroundColor = m_currentThemeBackgroundColor;
         m_currentRightFrameColor = m_currentThemeBackgroundColor;
-        this->setStyleSheet(QStringLiteral("QMainWindow { background-color: rgb(247, 247, 247);}"));
+        setStyleSheet(QStringLiteral("QMainWindow { background-color: rgb(247, 247, 247);}"));
         ui->verticalSpacer_upSearchEdit->setStyleSheet(
                 QStringLiteral("QWidget{ background-color: %1;}")
                         .arg(m_currentThemeBackgroundColor.name()));
@@ -1907,7 +1912,7 @@ void MainWindow::setTheme(Theme theme)
         m_currentEditorTextColor = QColor(204, 204, 204);
         m_currentEditorBackgroundColor = m_currentThemeBackgroundColor;
         m_currentRightFrameColor = m_currentThemeBackgroundColor;
-        this->setStyleSheet(QStringLiteral("QMainWindow { background-color: rgb(26, 26, 26); }"));
+        setStyleSheet(QStringLiteral("QMainWindow { background-color: rgb(26, 26, 26); }"));
         ui->verticalSpacer_upSearchEdit->setStyleSheet(
                 QStringLiteral("QWidget{ background-color: %1;}")
                         .arg(m_currentThemeBackgroundColor.name()));
@@ -1933,8 +1938,7 @@ void MainWindow::setTheme(Theme theme)
         m_currentEditorTextColor = QColor(95, 74, 50);
         m_currentEditorBackgroundColor = m_currentThemeBackgroundColor;
         m_currentRightFrameColor = m_currentThemeBackgroundColor;
-        this->setStyleSheet(
-                QStringLiteral("QMainWindow { background-color: rgb(251, 240, 217); }"));
+        setStyleSheet(QStringLiteral("QMainWindow { background-color: rgb(251, 240, 217); }"));
         ui->verticalSpacer_upSearchEdit->setStyleSheet(
                 QStringLiteral("QWidget{ background-color: %1;}")
                         .arg(m_currentThemeBackgroundColor.name()));
@@ -2067,20 +2071,17 @@ void MainWindow::selectNoteUp()
  */
 void MainWindow::fullscreenWindow()
 {
-#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     if (isFullScreen()) {
         if (!isMaximized()) {
-            m_noteListWidth =
-                    m_splitter->sizes().at(1) != 0 ? m_splitter->sizes().at(1) : m_noteListWidth;
-            //            QMargins
-            //            margins(m_layoutMargin,m_layoutMargin,m_layoutMargin,m_layoutMargin);
-            //            setMargins(margins);
+            QMargins margins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin);
+            setMargins(margins);
         }
 
         setWindowState(windowState() & ~Qt::WindowFullScreen);
     } else {
         setWindowState(windowState() | Qt::WindowFullScreen);
-        //        setMargins(QMargins(0,0,0,0));
+        setMargins(QMargins());
     }
 
 #elif _WIN32
@@ -2160,11 +2161,9 @@ void MainWindow::applyFormat(const QString &formatChars)
  */
 void MainWindow::maximizeWindow()
 {
-#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
     if (isMaximized()) {
         if (!isFullScreen()) {
-            m_noteListWidth =
-                    m_splitter->sizes().at(1) != 0 ? m_splitter->sizes().at(1) : m_noteListWidth;
             QMargins margins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin);
 
             setMargins(margins);
@@ -2175,7 +2174,7 @@ void MainWindow::maximizeWindow()
 
     } else {
         setWindowState(windowState() | Qt::WindowMaximized);
-        //        setMargins(QMargins(0,0,0,0));
+        setMargins(QMargins());
     }
 #elif _WIN32
     if (isMaximized()) {
@@ -2197,9 +2196,9 @@ void MainWindow::maximizeWindow()
  */
 void MainWindow::minimizeWindow()
 {
-#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
-    //    QMargins margins(m_layoutMargin,m_layoutMargin,m_layoutMargin,m_layoutMargin);
-    //    setMargins(margins);
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    QMargins margins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin);
+    setMargins(margins);
 #endif
 
     // BUG : QTBUG-57902 minimize doesn't store the window state before minimizing
@@ -2227,6 +2226,10 @@ void MainWindow::QuitApplication()
     m_settingsDatabase->setValue(QStringLiteral("dontShowUpdateWindow"), m_dontShowUpdateWindow);
 #endif
     m_settingsDatabase->setValue(QStringLiteral("splitterSizes"), m_splitter->saveState());
+
+    m_settingsDatabase->setValue(QStringLiteral("isTreeCollapsed"), m_foldersWidget->isHidden());
+    m_settingsDatabase->setValue(QStringLiteral("isNoteListCollapsed"),
+                                 m_noteListWidget->isHidden());
 
     QString currentFontTypefaceString;
     switch (m_currentFontTypeface) {
@@ -2381,54 +2384,45 @@ void MainWindow::exportNotesFile()
     }
 }
 
-/*!
- * \brief MainWindow::toggleNoteList
- */
+void MainWindow::toggleFolderTree()
+{
+    if (m_foldersWidget->isHidden()) {
+        expandFolderTree();
+    } else {
+        collapseFolderTree();
+    }
+}
+
+void MainWindow::collapseFolderTree()
+{
+    m_foldersWidget->setHidden(true);
+    updateFrame();
+}
+
+void MainWindow::expandFolderTree()
+{
+    m_foldersWidget->setHidden(false);
+    updateFrame();
+}
+
 void MainWindow::toggleNoteList()
 {
-    if (m_isNoteListCollapsed) {
+    if (m_noteListWidget->isHidden()) {
         expandNoteList();
     } else {
         collapseNoteList();
     }
 }
 
-void MainWindow::collapseNodeTree()
-{
-    m_isTreeCollapsed = true;
-    updateFrame();
-}
-
-void MainWindow::expandNodeTree()
-{
-    m_isTreeCollapsed = false;
-    updateFrame();
-}
-
-void MainWindow::toggleNodeTree()
-{
-    if (m_isTreeCollapsed) {
-        expandNodeTree();
-    } else {
-        collapseNodeTree();
-    }
-}
-
-/*!
- * \brief MainWindow::collapseNoteList
- */
 void MainWindow::collapseNoteList()
 {
-    m_isNoteListCollapsed = true;
+    m_noteListWidget->setHidden(true);
     updateFrame();
 }
 
-/*!
- * \brief MainWindow::expandNoteList
- */
 void MainWindow::expandNoteList()
 {
-    m_isNoteListCollapsed = false;
+    m_noteListWidget->setHidden(false);
     updateFrame();
 }
 
@@ -2441,11 +2435,10 @@ void MainWindow::onGreenMaximizeButtonPressed()
 #ifdef _WIN32
     m_greenMaximizeButton->setIcon(QIcon(":images/windows_minimize_pressed.png"));
 #else
-    if (this->windowState() == Qt::WindowFullScreen) {
+    if (windowState() == Qt::WindowFullScreen)
         m_greenMaximizeButton->setIcon(QIcon(QStringLiteral(":images/greenInPressed.png")));
-    } else {
+    else
         m_greenMaximizeButton->setIcon(QIcon(QStringLiteral(":images/greenPressed.png")));
-    }
 #endif
 }
 
@@ -2456,7 +2449,7 @@ void MainWindow::onGreenMaximizeButtonPressed()
 void MainWindow::onYellowMinimizeButtonPressed()
 {
 #ifdef _WIN32
-    if (this->windowState() == Qt::WindowFullScreen) {
+    if (windowState() == Qt::WindowFullScreen) {
         m_yellowMinimizeButton->setIcon(
                 QIcon(QStringLiteral(":images/windows_de-maximize_pressed.png")));
     } else {
@@ -2534,7 +2527,7 @@ void MainWindow::onRedCloseButtonClicked()
     m_redCloseButton->setIcon(QIcon(QStringLiteral(":images/red.png")));
 #endif
 
-    if (m_hideToTray) {
+    if (m_hideToTray && m_trayIcon->isVisible() && QSystemTrayIcon::isSystemTrayAvailable()) {
         setMainWindowVisibility(false);
     } else {
         QuitApplication();
@@ -2551,7 +2544,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (!event->spontaneous() || !isVisible()) {
         return;
     }
-    if (m_hideToTray && m_trayIcon->isVisible()) {
+    if (m_hideToTray && m_trayIcon->isVisible() && QSystemTrayIcon::isSystemTrayAvailable()) {
         // don't close the application, just hide to tray
         setMainWindowVisibility(false);
         event->ignore();
@@ -2578,46 +2571,35 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
     m_mousePressY = event->pos().y();
 
     if (event->buttons() == Qt::LeftButton) {
-        if (m_mousePressX < this->width() - m_layoutMargin && m_mousePressX > m_layoutMargin
-            && m_mousePressY < this->height() - m_layoutMargin && m_mousePressY > m_layoutMargin) {
+        if (isTitleBar(m_mousePressX, m_mousePressY)) {
 
 #  if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
             m_canMoveWindow = !window()->windowHandle()->startSystemMove();
 #  else
             m_canMoveWindow = true;
-            //            QApplication::setOverrideCursor(QCursor(Qt::ClosedHandCursor));
 #  endif
 
 #  ifndef __APPLE__
-        } else {
+        } else if (!isMaximized() && !isFullScreen()) {
             m_canStretchWindow = true;
 
-            int currentWidth = m_splitter->sizes().at(1);
-            if (currentWidth != 0)
-                m_noteListWidth = currentWidth;
-
-            if ((m_mousePressX < this->width() && m_mousePressX > this->width() - m_layoutMargin)
+            if ((m_mousePressX < width() && m_mousePressX > width() - m_layoutMargin)
                 && (m_mousePressY < m_layoutMargin && m_mousePressY > 0)) {
                 m_stretchSide = StretchSide::TopRight;
-            } else if ((m_mousePressX < this->width()
-                        && m_mousePressX > this->width() - m_layoutMargin)
-                       && (m_mousePressY < this->height()
-                           && m_mousePressY > this->height() - m_layoutMargin)) {
+            } else if ((m_mousePressX < width() && m_mousePressX > width() - m_layoutMargin)
+                       && (m_mousePressY < height() && m_mousePressY > height() - m_layoutMargin)) {
                 m_stretchSide = StretchSide::BottomRight;
             } else if ((m_mousePressX < m_layoutMargin && m_mousePressX > 0)
                        && (m_mousePressY < m_layoutMargin && m_mousePressY > 0)) {
                 m_stretchSide = StretchSide::TopLeft;
             } else if ((m_mousePressX < m_layoutMargin && m_mousePressX > 0)
-                       && (m_mousePressY < this->height()
-                           && m_mousePressY > this->height() - m_layoutMargin)) {
+                       && (m_mousePressY < height() && m_mousePressY > height() - m_layoutMargin)) {
                 m_stretchSide = StretchSide::BottomLeft;
-            } else if (m_mousePressX < this->width()
-                       && m_mousePressX > this->width() - m_layoutMargin) {
+            } else if (m_mousePressX < width() && m_mousePressX > width() - m_layoutMargin) {
                 m_stretchSide = StretchSide::Right;
             } else if (m_mousePressX < m_layoutMargin && m_mousePressX > 0) {
                 m_stretchSide = StretchSide::Left;
-            } else if (m_mousePressY < this->height()
-                       && m_mousePressY > this->height() - m_layoutMargin) {
+            } else if (m_mousePressY < height() && m_mousePressY > height() - m_layoutMargin) {
                 m_stretchSide = StretchSide::Bottom;
             } else if (m_mousePressY < m_layoutMargin && m_mousePressY > 0) {
                 m_stretchSide = StretchSide::Top;
@@ -2651,27 +2633,23 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
         m_mousePressX = event->pos().x();
         m_mousePressY = event->pos().y();
 
-        if ((m_mousePressX < this->width() && m_mousePressX > this->width() - m_layoutMargin)
+        if ((m_mousePressX < width() && m_mousePressX > width() - m_layoutMargin)
             && (m_mousePressY < m_layoutMargin && m_mousePressY > 0)) {
             m_stretchSide = StretchSide::TopRight;
-        } else if ((m_mousePressX < this->width() && m_mousePressX > this->width() - m_layoutMargin)
-                   && (m_mousePressY < this->height()
-                       && m_mousePressY > this->height() - m_layoutMargin)) {
+        } else if ((m_mousePressX < width() && m_mousePressX > width() - m_layoutMargin)
+                   && (m_mousePressY < height() && m_mousePressY > height() - m_layoutMargin)) {
             m_stretchSide = StretchSide::BottomRight;
         } else if ((m_mousePressX < m_layoutMargin && m_mousePressX > 0)
                    && (m_mousePressY < m_layoutMargin && m_mousePressY > 0)) {
             m_stretchSide = StretchSide::TopLeft;
         } else if ((m_mousePressX < m_layoutMargin && m_mousePressX > 0)
-                   && (m_mousePressY < this->height()
-                       && m_mousePressY > this->height() - m_layoutMargin)) {
+                   && (m_mousePressY < height() && m_mousePressY > height() - m_layoutMargin)) {
             m_stretchSide = StretchSide::BottomLeft;
-        } else if (m_mousePressX < this->width()
-                   && m_mousePressX > this->width() - m_layoutMargin) {
+        } else if (m_mousePressX < width() && m_mousePressX > width() - m_layoutMargin) {
             m_stretchSide = StretchSide::Right;
         } else if (m_mousePressX < m_layoutMargin && m_mousePressX > 0) {
             m_stretchSide = StretchSide::Left;
-        } else if (m_mousePressY < this->height()
-                   && m_mousePressY > this->height() - m_layoutMargin) {
+        } else if (m_mousePressY < height() && m_mousePressY > height() - m_layoutMargin) {
             m_stretchSide = StretchSide::Bottom;
         } else if (m_mousePressY < m_layoutMargin && m_mousePressY > 0) {
             m_stretchSide = StretchSide::Top;
@@ -2680,7 +2658,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
         }
     }
 
-    if (!m_canMoveWindow) {
+    if (!m_canMoveWindow && !isMaximized() && !isFullScreen()) {
         switch (m_stretchSide) {
         case StretchSide::Right:
         case StretchSide::Left:
@@ -2723,7 +2701,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
 
         switch (m_stretchSide) {
         case StretchSide::Right:
-            newWidth = abs(event->globalPos().x() - this->x() + 1);
+            newWidth = abs(event->globalPos().x() - x() + 1);
             newWidth = newWidth < minimumWidth() ? minimumWidth() : newWidth;
             break;
         case StretchSide::Left:
@@ -2847,8 +2825,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
     }
 
     if (event->button() == Qt::LeftButton) {
-        if (event->pos().x() < this->width() - 5 && event->pos().x() > 5
-            && event->pos().y() < this->height() - 5 && event->pos().y() > 5) {
+        if (isTitleBar(event->pos().x(), event->pos().y())) {
 
 #  if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
             m_canMoveWindow = !window()->windowHandle()->startSystemMove();
@@ -2876,7 +2853,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
     }
 
     if (m_canMoveWindow) {
-        //        this->setCursor(Qt::ClosedHandCursor);
+        //        setCursor(Qt::ClosedHandCursor);
         int dx = event->globalPos().x() - m_mousePressX;
         int dy = event->globalY() - m_mousePressY;
         move(dx, dy);
@@ -2896,7 +2873,7 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
     }
 
     m_canMoveWindow = false;
-    //    this->unsetCursor();
+    //    unsetCursor();
     event->accept();
 }
 #endif
@@ -2940,25 +2917,7 @@ void MainWindow::selectAllNotesInList()
 
 void MainWindow::updateFrame()
 {
-    int minWidth = ui->frameMiddle->minimumWidth();
-    int noteListWidth = m_isNoteListCollapsed ? 0
-            : m_noteListWidth < minWidth      ? minWidth
-                                              : m_noteListWidth;
-    minWidth = ui->frameLeft->minimumWidth();
-    int nodeTreeWidth = m_isTreeCollapsed ? 0
-            : m_nodeTreeWidth < minWidth  ? minWidth
-                                          : m_nodeTreeWidth;
-    QList<int> sizes = m_splitter->sizes();
-    sizes[0] = nodeTreeWidth;
-    sizes[1] = noteListWidth;
-    sizes[2] = (m_splitter->width() + 2 * m_layoutMargin) - noteListWidth - nodeTreeWidth;
-    m_splitter->setCollapsible(1, true);
-    m_splitter->setCollapsible(0, true);
-    m_splitter->setSizes(sizes);
-    m_splitter->setCollapsible(1, false);
-    m_splitter->setCollapsible(0, false);
-
-    if (m_isNoteListCollapsed && m_isTreeCollapsed) {
+    if (m_foldersWidget->isHidden() && m_noteListWidget->isHidden()) {
         setWindowButtonsVisible(false);
     } else {
         setWindowButtonsVisible(true);
@@ -3193,7 +3152,8 @@ double MainWindow::gaussianDist(double x, const double center, double sigma) con
  */
 void MainWindow::mouseDoubleClickEvent(QMouseEvent *event)
 {
-    if (m_useNativeWindowFrame) {
+    if (m_useNativeWindowFrame || event->buttons() != Qt::LeftButton
+        || !isTitleBar(event->pos().x(), event->pos().y())) {
         MainWindowBase::mouseDoubleClickEvent(event);
         return;
     }
@@ -3201,7 +3161,7 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent *event)
 #ifndef __APPLE__
     maximizeWindow();
 #else
-    this->maximizeWindowMac();
+    maximizeWindowMac();
 #endif
     event->accept();
 }
@@ -3211,7 +3171,23 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent *event)
  */
 void MainWindow::leaveEvent(QEvent *)
 {
-    this->unsetCursor();
+    unsetCursor();
+}
+
+/*!
+ * \brief MainWindow::changeEvent
+ */
+void MainWindow::changeEvent(QEvent *event)
+{
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    if (event->type() == QEvent::WindowStateChange && !m_useNativeWindowFrame) {
+        if (isMaximized())
+            setMargins(QMargins());
+        else
+            setMargins(QMargins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin));
+    }
+#endif
+    MainWindowBase::changeEvent(event);
 }
 
 /*!
@@ -3221,24 +3197,16 @@ void MainWindow::leaveEvent(QEvent *)
 void MainWindow::setVisibilityOfFrameRightNonEditor(bool isVisible)
 {
     m_isFrameRightTopWidgetsVisible = isVisible;
+    m_areNonEditorWidgetsVisible = isVisible;
 
-    if (isVisible) {
-        m_areNonEditorWidgetsVisible = true;
-        m_editorDateLabel->setVisible(true);
-        m_trashButton->setVisible(true);
-        m_dotsButton->setVisible(true);
-        m_styleEditorButton->setVisible(true);
-    } else {
-        m_areNonEditorWidgetsVisible = false;
-        m_editorDateLabel->setVisible(false);
-        m_trashButton->setVisible(false);
-        m_dotsButton->setVisible(false);
-        m_styleEditorButton->setVisible(false);
-    }
+    m_editorDateLabel->setVisible(isVisible);
+    m_trashButton->setVisible(isVisible);
+    m_dotsButton->setVisible(isVisible);
+    m_styleEditorButton->setVisible(isVisible);
 
     // If the notes list is collapsed, hide the window buttons
     if (m_splitter) {
-        if (m_isNoteListCollapsed && m_isTreeCollapsed) {
+        if (m_foldersWidget->isHidden() && m_noteListWidget->isHidden()) {
             setWindowButtonsVisible(isVisible);
         }
     }
@@ -3275,7 +3243,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
             }
 
             if (object == m_yellowMinimizeButton) {
-                if (this->windowState() == Qt::WindowFullScreen) {
+                if (windowState() == Qt::WindowFullScreen) {
                     m_yellowMinimizeButton->setIcon(
                             QIcon(QStringLiteral(":images/windows_de-maximize_hovered.png")));
                 } else {
@@ -3296,7 +3264,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
 
                 m_redCloseButton->setIcon(QIcon(QStringLiteral(":images/redHovered.png")));
                 m_yellowMinimizeButton->setIcon(QIcon(QStringLiteral(":images/yellowHovered.png")));
-                if (this->windowState() == Qt::WindowFullScreen) {
+                if (windowState() == Qt::WindowFullScreen) {
                     m_greenMaximizeButton->setIcon(
                             QIcon(QStringLiteral(":images/greenInHovered.png")));
                 } else {
@@ -3307,22 +3275,22 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
 #endif
 
             if (object == m_newNoteButton) {
-                this->setCursor(Qt::PointingHandCursor);
+                setCursor(Qt::PointingHandCursor);
                 m_newNoteButton->setIcon(QIcon(QStringLiteral(":/images/newNote_Hovered.png")));
             }
 
             if (object == m_trashButton) {
-                this->setCursor(Qt::PointingHandCursor);
+                setCursor(Qt::PointingHandCursor);
                 m_trashButton->setIcon(QIcon(QStringLiteral(":/images/trashCan_Hovered.png")));
             }
 
             if (object == m_dotsButton) {
-                this->setCursor(Qt::PointingHandCursor);
+                setCursor(Qt::PointingHandCursor);
                 m_dotsButton->setIcon(QIcon(QStringLiteral(":/images/3dots_Hovered.png")));
             }
 
             if (object == m_styleEditorButton) {
-                this->setCursor(Qt::PointingHandCursor);
+                setCursor(Qt::PointingHandCursor);
                 QString ss = QStringLiteral("QPushButton { "
                                             "  border: none; "
                                             "  padding: 0px; "
@@ -3354,7 +3322,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
                 m_greenMaximizeButton->setIcon(
                         QIcon(QStringLiteral(":images/windows_minimize_regular.png")));
 
-                if (this->windowState() == Qt::WindowFullScreen) {
+                if (windowState() == Qt::WindowFullScreen) {
                     m_yellowMinimizeButton->setIcon(
                             QIcon(QStringLiteral(":images/windows_de-maximize_regular.png")));
                 } else {
@@ -3369,22 +3337,22 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
             }
 
             if (object == m_newNoteButton) {
-                this->unsetCursor();
+                unsetCursor();
                 m_newNoteButton->setIcon(QIcon(QStringLiteral(":/images/newNote_Regular.png")));
             }
 
             if (object == m_trashButton) {
-                this->unsetCursor();
+                unsetCursor();
                 m_trashButton->setIcon(QIcon(QStringLiteral(":/images/trashCan_Regular.png")));
             }
 
             if (object == m_dotsButton) {
-                this->unsetCursor();
+                unsetCursor();
                 m_dotsButton->setIcon(QIcon(QStringLiteral(":/images/3dots_Regular.png")));
             }
 
             if (object == m_styleEditorButton) {
-                this->unsetCursor();
+                unsetCursor();
                 QString ss = QStringLiteral("QPushButton { "
                                             "  border: none; "
                                             "  padding: 0px; "
@@ -3417,7 +3385,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
         m_greenMaximizeButton->setIcon(
                 QIcon(QStringLiteral(":images/windows_minimize_regular.png")));
 
-        if (this->windowState() == Qt::WindowFullScreen) {
+        if (windowState() == Qt::WindowFullScreen) {
             m_yellowMinimizeButton->setIcon(
                     QIcon(QStringLiteral(":images/windows_de-maximize_regular.png")));
         } else {
@@ -3469,7 +3437,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
                     if (!m_searchEdit->text().isEmpty()) {
                         m_listViewLogic->clearSearch(true);
                     } else {
-                        this->createNewNote();
+                        createNewNote();
                     }
                 }
             }
@@ -3523,17 +3491,6 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
         }
 #endif
         break;
-    case QEvent::MouseButtonPress:
-    case QEvent::MouseButtonDblClick:
-        // Only allow double click (maximise/minimise) or dragging (move)
-        // from the top part of the window
-        if (object == ui->frame) {
-            QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-            if (mouseEvent->pos().y() >= ui->searchEdit->y()) {
-                return true;
-            }
-        }
-        break;
     case QEvent::KeyPress: {
         auto *keyEvent = static_cast<QKeyEvent *>(event);
         if (keyEvent->key() == Qt::Key_Return && m_searchEdit->text().isEmpty()) {
@@ -3544,12 +3501,6 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
             return true;
         }
         break;
-    }
-    case QEvent::MouseMove: {
-        // Apperantly we need this if m_layoutMargin is set to 0
-        if (object == ui->frame || object == ui->frameMiddle || object == ui->frameRight
-            || object == ui->frameRightTop)
-            mouseMoveEvent(static_cast<QMouseEvent *>(event));
     }
     default:
         break;
@@ -3612,7 +3563,7 @@ void MainWindow::stayOnTop(bool checked)
     setWindowFlags(flags);
     setMainWindowVisibility(true);
 #else
-    this->setWindowAlwaysOnTopMac(checked);
+    setWindowAlwaysOnTopMac(checked);
 #endif
 }
 
@@ -3715,29 +3666,24 @@ void MainWindow::setUseNativeWindowFrame(bool useNativeWindowFrame)
     // Reset window flags to its initial state.
     Qt::WindowFlags flags = Qt::Window;
 
-    if (!useNativeWindowFrame)
+    if (!useNativeWindowFrame) {
         flags |= Qt::CustomizeWindowHint;
+#  if defined(Q_OS_UNIX)
+        flags |= Qt::FramelessWindowHint;
+#  endif
+    }
 
     setWindowFlags(flags);
 #endif
 
-    // #if defined(Q_OS_LINUX)
-    //     if (useNativeWindowFrame || isMaximized()) {
-    //         ui->centralWidget->layout()->setContentsMargins(QMargins());
-    //     } else {
-    //         QMargins margins(m_layoutMargin,m_layoutMargin,m_layoutMargin,m_layoutMargin);
-    //         ui->centralWidget->layout()->setContentsMargins(margins);
-    //     }
-    // #endif
-
-    // #ifndef _WIN32
-    //     if (useNativeWindowFrame || isMaximized()) {
-    //         ui->centralWidget->layout()->setContentsMargins(QMargins());
-    //     } else {
-    //         QMargins margins(m_layoutMargin,m_layoutMargin,m_layoutMargin,m_layoutMargin);
-    //         ui->centralWidget->layout()->setContentsMargins(margins);
-    //     }
-    // #endif
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
+    if (useNativeWindowFrame || isMaximized()) {
+        ui->centralWidget->layout()->setContentsMargins(QMargins());
+    } else {
+        QMargins margins(m_layoutMargin, m_layoutMargin, m_layoutMargin, m_layoutMargin);
+        ui->centralWidget->layout()->setContentsMargins(margins);
+    }
+#endif
 
     adjustUpperWidgets(useNativeWindowFrame);
 
@@ -3755,7 +3701,7 @@ void MainWindow::setHideToTray(bool enabled)
  */
 void MainWindow::toggleStayOnTop()
 {
-    this->stayOnTop(!m_alwaysStayOnTop);
+    stayOnTop(!m_alwaysStayOnTop);
 }
 
 /*!
@@ -3786,4 +3732,26 @@ void MainWindow::setMargins(QMargins margins)
 
     ui->centralWidget->layout()->setContentsMargins(margins);
     m_trafficLightLayout.setGeometry(QRect(4 + margins.left(), 4 + margins.top(), 56, 16));
+}
+
+bool MainWindow::isTitleBar(int x, int y) const
+{
+    if (m_useNativeWindowFrame)
+        return false;
+
+    // The width of the title bar is essentially the width of the main window.
+    int titleBarWidth = width();
+    int titleBarHeight = ui->verticalSpacer_upTreeView->height();
+
+    int adjustedX = x;
+    int adjustedY = y;
+
+    if (!isMaximized() && !isFullScreen()) {
+        titleBarWidth -= m_layoutMargin * 2;
+        adjustedX -= m_layoutMargin;
+        adjustedY -= m_layoutMargin;
+    }
+
+    return (adjustedX >= 0 && adjustedX <= titleBarWidth && adjustedY >= 0
+            && adjustedY <= titleBarHeight);
 }

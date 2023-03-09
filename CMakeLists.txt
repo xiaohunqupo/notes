@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-set(APP_VERSION 2.0.0)
+set(APP_VERSION 2.1.0)
+set(APP_ID "io.github.nuttyartist.notes")
 
 # Any of the options below can be changed by passing -D<option name>=<value> to CMake.
 set(CMAKE_OSX_DEPLOYMENT_TARGET
@@ -225,7 +226,7 @@ if(UPDATE_CHECKER)
     ${PROJECT_SOURCE_DIR}/3rdParty/QSimpleUpdater/src/Updater.h)
 endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if(APPLE)
   list(APPEND SOURCES ${PROJECT_SOURCE_DIR}/src/framelesswindow.mm
        ${PROJECT_SOURCE_DIR}/src/framelesswindow.h
        ${PROJECT_SOURCE_DIR}/src/images/notes_icon.icns)
@@ -275,7 +276,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES
   target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Wextra -Wpedantic
                                                 -Wshadow)
   set_source_files_properties(${SOURCES_3RD_PARTY} PROPERTIES COMPILE_FLAGS -w)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND MSVC_VERSION GREATER_EQUAL
+                                                 1920)
   target_compile_options(${PROJECT_NAME} PUBLIC /W4)
   set_source_files_properties(${SOURCES_3RD_PARTY} PROPERTIES COMPILE_FLAGS /w)
 endif()
@@ -292,7 +294,7 @@ target_link_libraries(
          Qt${QT_VERSION_MAJOR}::Widgets
          Qt${QT_VERSION_MAJOR}::WidgetsPrivate)
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if(APPLE)
   string(TIMESTAMP CURRENT_YEAR "%Y")
   set(COPYRIGHT_TEXT
       "Copyright (c) 2015-${CURRENT_YEAR} Ruby Mamistvalove and contributors.")
@@ -300,7 +302,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set_target_properties(
     ${PROJECT_NAME}
     PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
-               MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.nuttyartist.notes"
+               MACOSX_BUNDLE_GUI_IDENTIFIER ${APP_ID}
                MACOSX_BUNDLE_ICON_FILE "notes_icon.icns"
                MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
                MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
@@ -319,6 +321,43 @@ elseif(UNIX)
   set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${BINARY_NAME})
 
   target_link_libraries(${PROJECT_NAME} PUBLIC X11)
+
+  include(GNUInstallDirs)
+
+  configure_file(${PROJECT_SOURCE_DIR}/packaging/linux/common/notes.desktop.in
+                 ${CMAKE_BINARY_DIR}/${APP_ID}.desktop)
+  install(FILES ${CMAKE_BINARY_DIR}/${APP_ID}.desktop
+          DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
+
+  configure_file(
+    ${PROJECT_SOURCE_DIR}/packaging/linux/common/notes.appdata.xml.in
+    ${CMAKE_BINARY_DIR}/${APP_ID}.metainfo.xml)
+  install(FILES ${CMAKE_BINARY_DIR}/${APP_ID}.metainfo.xml
+          DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)
+
+  foreach(
+    ICON_SIZE
+    16
+    22
+    24
+    32
+    48
+    64
+    128
+    256
+    512)
+    install(
+      FILES
+        ${PROJECT_SOURCE_DIR}/packaging/linux/common/icons/${ICON_SIZE}x${ICON_SIZE}/notes.png
+      DESTINATION
+        ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${ICON_SIZE}x${ICON_SIZE}/apps
+      RENAME ${APP_ID}.png)
+  endforeach()
+
+  install(
+    FILES ${PROJECT_SOURCE_DIR}/packaging/linux/common/icons/scalable/notes.svg
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
+    RENAME ${APP_ID}.svg)
 elseif(WIN32)
   target_compile_definitions(${PROJECT_NAME} PUBLIC QXT_STATIC)
 

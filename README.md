@@ -8,7 +8,7 @@
 
 Notes is an open source and cross-platform note-taking app that is both beautiful and powerful.
 
-Website: <a href="http://get-notes.com" target="_blank">get-notes.com</a>  
+Website: <a href="https://get-notes.com" target="_blank">get-notes.com</a>
 Our vision for the future on our [Wiki](https://github.com/nuttyartist/notes/wiki/Vision).
 
 ## Screenshots
@@ -31,42 +31,29 @@ Our vision for the future on our [Wiki](https://github.com/nuttyartist/notes/wik
 - Keyboard shortcuts. Meant to have the option to be used solely with a keyboard (but more work needs to be done there).
 - What feature will you contribute?
 
+## Keyboard shortcuts
+
+All keyboard shortcuts are [documented here](docs/keyboard_shortcuts.md).
+
 ## Support the project
 
 If you use Notes daily, consider donating money so I can pay programmers to develop new features and fix bugs. I partner with [Github Sponsors](https://github.com/sponsors/nuttyartist) and [Patreon](https://www.patreon.com/rubymamis) to receive contributions. You can also put a bounty on specific issues using Bountysource. I currently make a living from ads on the website, but I'd like to stop with that.
 
-## How to clone
+## Building from source
 
-Use this command to clone the repository:
-
-```shell
-$> git clone --recursive  https://github.com/nuttyartist/notes.git
-```
-
-## Dependencies
-
-Make sure the Qt (>= 5.9) development libraries are installed:
-
-- Debian/Ubuntu : qt5-default build-essential qtbase5-private-dev sqlite3
-
-## Compiling
-
-```shell
-$> mkdir build
-$> cd build
-$> cmake .. -DCMAKE_BUILD_TYPE=Release
-$> make -j4
-```
+We have specific instructions for [Windows](docs/build_on_windows.md), [macOS](docs/build_on_macos.md) and [Linux](docs/build_on_linux.md) (and we also provide [build options](docs/build_options.md)).
 
 ## Database path
 
 The notes database and settings file are stored in:
 
-**Windows** : `C:\Users\user\AppData\Roaming\Awesomeness`  
-**Linux** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: `/home/user/.config/Awesomeness/` **or** `/home/snap/notes/x1/.config/Awesomeness` **(using snap)**  
-**Mac** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: `/home/user/.config/Awesomeness/`
+| OS      | Path                                                                                                                                             |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Windows | `%APPDATA%\Awesomeness`                                                                                                                          |
+| Linux   | `~/.config/Awesomeness`<br>`~/snap/notes/x1/.config/Awesomeness` (Snap)<br>`~/.var/app/io.github.nuttyartist.notes/config/Awesomeness` (Flatpak) |
+| macOS   | `~/.config/Awesomeness`                                                                                                                          |
 
-## Contributers
+## Contributors
 
 ### Developers:
 Alex Spataru  

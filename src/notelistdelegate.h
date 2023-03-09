@@ -15,16 +15,15 @@ class NoteListDelegate : public QStyledItemDelegate
     Q_OBJECT
 
 public:
-    NoteListDelegate(NoteListView *view, TagPool *tagPool, QObject *parent = Q_NULLPTR);
+    NoteListDelegate(NoteListView *view, TagPool *tagPool, QObject *parent = nullptr);
 
     void setState(NoteListState NewState, QModelIndexList indexes);
     void setAnimationDuration(const int duration);
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
-               const QModelIndex &index) const Q_DECL_OVERRIDE;
+               const QModelIndex &index) const override;
 
-    QSize sizeHint(const QStyleOptionViewItem &option,
-                   const QModelIndex &index) const Q_DECL_OVERRIDE;
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
     QSize bufferSizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const;
 

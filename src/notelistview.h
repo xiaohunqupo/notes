@@ -15,7 +15,7 @@ class NoteListView : public QListView
     Q_OBJECT
 
 public:
-    explicit NoteListView(QWidget *parent = Q_NULLPTR);
+    explicit NoteListView(QWidget *parent = nullptr);
     ~NoteListView();
 
     void animateAddedRow(const QModelIndexList &indexes);
@@ -47,10 +47,10 @@ public slots:
     void onAnimationFinished(NoteListState state);
 
 protected:
-    void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void mousePressEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
-    void mouseReleaseEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
-    bool viewportEvent(QEvent *e) Q_DECL_OVERRIDE;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mousePressEvent(QMouseEvent *e) override;
+    void mouseReleaseEvent(QMouseEvent *e) override;
+    bool viewportEvent(QEvent *e) override;
     virtual void dragEnterEvent(QDragEnterEvent *event) override;
     virtual void dragMoveEvent(QDragMoveEvent *event) override;
 

@@ -51,11 +51,11 @@ class TagPool;
 class SplitterStyle;
 
 #if defined(Q_OS_WINDOWS) || defined(Q_OS_WIN)
-//#if defined(__MINGW32__) || defined(__GNUC__)
+// #if defined(__MINGW32__) || defined(__GNUC__)
 using MainWindowBase = QMainWindow;
-//#else
-// using MainWindowBase = CFramelessWindow;
-//#endif
+// #else
+//  using MainWindowBase = CFramelessWindow;
+// #endif
 #elif defined(Q_OS_MACOS)
 using MainWindowBase = CFramelessWindow;
 #else
@@ -95,8 +95,8 @@ public:
     Q_ENUM(ShadowSide)
     Q_ENUM(StretchSide)
 
-    explicit MainWindow(QWidget *parent = Q_NULLPTR);
-    ~MainWindow() Q_DECL_OVERRIDE;
+    explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow() override;
 
     void setMainWindowVisibility(bool state);
 
@@ -107,15 +107,16 @@ public slots:
     void saveLastSelectedNote(const QSet<int> &notesId);
 
 protected:
-    void paintEvent(QPaintEvent *event) Q_DECL_OVERRIDE;
-    void resizeEvent(QResizeEvent *event) Q_DECL_OVERRIDE;
-    void closeEvent(QCloseEvent *event) Q_DECL_OVERRIDE;
-    void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void mouseReleaseEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void mouseDoubleClickEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void leaveEvent(QEvent *) Q_DECL_OVERRIDE;
-    bool eventFilter(QObject *object, QEvent *event) Q_DECL_OVERRIDE;
+    void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *) override;
+    void changeEvent(QEvent *event) override;
+    bool eventFilter(QObject *object, QEvent *event) override;
 
 private:
     Ui::MainWindow *ui;
@@ -135,11 +136,12 @@ private:
     QLineEdit *m_searchEdit;
     QLabel *m_editorDateLabel;
     QSplitter *m_splitter;
+    QWidget *m_noteListWidget;
+    QWidget *m_foldersWidget;
     QSystemTrayIcon *m_trayIcon;
 #if !defined(Q_OS_MAC)
     QAction *m_restoreAction;
     QAction *m_quitAction;
-    QMenu *m_trayIconMenu;
 #endif
 
     NoteListView *m_listView;
@@ -188,8 +190,6 @@ private:
     int m_chosenMonoFontIndex;
     int m_editorMediumFontSize;
     int m_currentFontPointSize;
-    bool m_isNoteListCollapsed;
-    bool m_isTreeCollapsed;
     struct m_charsLimitPerFont
     {
         int mono;
@@ -289,9 +289,9 @@ private slots:
     void collapseNoteList();
     void expandNoteList();
     void toggleNoteList();
-    void collapseNodeTree();
-    void expandNodeTree();
-    void toggleNodeTree();
+    void collapseFolderTree();
+    void expandFolderTree();
+    void toggleFolderTree();
     void importNotesFile();
     void exportNotesFile();
     void restoreNotesFile();
@@ -314,6 +314,7 @@ private slots:
     void setNoteListLoading();
     void selectAllNotesInList();
     void updateFrame();
+    bool isTitleBar(int x, int y) const;
 
 signals:
     void requestNodesTree();

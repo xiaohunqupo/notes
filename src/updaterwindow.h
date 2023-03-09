@@ -8,6 +8,7 @@
 #define UPDATERWINDOW_H
 
 #include <QDialog>
+#include <QDir>
 
 namespace Ui {
 class UpdaterWindow;
@@ -50,15 +51,17 @@ private slots:
     void onDownloadFinished();
 
 protected:
-    void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-    void mouseReleaseEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     qreal round(qreal input);
 
 private:
     QString m_fileName;
+    const QDir m_downloadDir;
+
     Ui::UpdaterWindow *m_ui;
 
     QPoint m_dragPosition;
